@@ -60,22 +60,37 @@ impl<E: 'static + error::Error> From<E> for Fail {
 }
 
 pub trait ErrorMessageExt<T> {
+    fn context<D: fmt::Display>(self, msg: D) -> Result<T, Fail>;
+
+    #[deprecated(since = "0.1.1", note = "Use context().")]
     fn err_msg<D: fmt::Display>(self, msg: D) -> Result<T, Fail>;
 }
 
 impl<T, E: 'static + error::Error> ErrorMessageExt<T> for Result<T, E> {
+    fn context<D: fmt::Display>(self, msg: D) -> Result<T, Fail> {
+        self.map_err(|err| Fail::Fail(Some(msg.to_string()), Box::new(err.into())))
+    }
+
     fn err_msg<D: fmt::Display>(self, msg: D) -> Result<T, Fail> {
         self.map_err(|err| Fail::Fail(Some(msg.to_string()), Box::new(err.into())))
     }
 }
 
 impl<T> ErrorMessageExt<T> for Option<T> {
+    fn context<D: fmt::Display>(self, msg: D) -> Result<T, Fail> {
+        self.ok_or_else(|| Fail::Message(msg.to_string()))
+    }
+
     fn err_msg<D: fmt::Display>(self, msg: D) -> Result<T, Fail> {
         self.ok_or_else(|| Fail::Message(msg.to_string()))
     }
 }
 
 impl<T> ErrorMessageExt<T> for Result<T, Fail> {
+    fn context<D: fmt::Display>(self, msg: D) -> Result<T, Fail> {
+        self.map_err(|fail| fail.msg(msg))
+    }
+
     fn err_msg<D: fmt::Display>(self, msg: D) -> Result<T, Fail> {
         self.map_err(|fail| fail.msg(msg))
     }
