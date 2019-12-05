@@ -1,33 +1,78 @@
+//! An error type library for applications.
+//!
+//! This crate contains two primary items:
+//! * [`Fail`](enum.Fail.html) represents failures. This **not** implements [`std::error::Error`](https://doc.rust-lang.org/std/error/trait.Error.html).
+//! * [`Error`](struct.Error.html) is a wrapper for `Fail` that implements `std::error::Error`.
+//!
+//! [`FailExt`](trait.FailExt.html) is supprting trait. It helps to handling `Result` and `Option`.
+
 use std::error;
 use std::fmt;
 
+/// The failure type.
 #[derive(Debug)]
-pub enum Fail {
-    Error(Box<dyn error::Error>),
-    Fail(Option<String>, Box<Fail>),
-    Message(String),
+pub struct Fail {
+    msg: Option<String>,
+    cause: Option<FailCause>,
+}
+
+#[derive(Debug)]
+enum FailCause {
+    Error(Box<dyn 'static + Send + Sync + error::Error>),
+    Fail(Box<Fail>),
 }
 
 impl Fail {
     pub fn new<D: fmt::Display>(msg: D) -> Fail {
-        Fail::Message(msg.to_string())
+        Fail {
+            msg: Some(msg.to_string()),
+            cause: None,
+        }
     }
 
-    pub fn msg<D: fmt::Display>(self, msg: D) -> Fail {
+    fn add_msg<D: fmt::Display>(self, msg: D) -> Fail {
         match self {
-            Fail::Fail(None, fail) => Fail::Fail(Some(msg.to_string()), fail),
-            fail => Fail::Fail(Some(msg.to_string()), Box::new(fail)),
+            Fail { msg: None, cause } => Fail {
+                msg: Some(msg.to_string()),
+                cause,
+            },
+            fail => Fail {
+                msg: Some(msg.to_string()),
+                cause: Some(FailCause::Fail(Box::new(fail))),
+            },
         }
     }
 }
 
 impl fmt::Display for Fail {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            Fail::Error(e) => e.fmt(f),
-            Fail::Fail(None, fail) => fail.fmt(f),
-            Fail::Fail(Some(msg), fail) => write!(f, "{}: {}", msg, fail),
-            Fail::Message(msg) => write!(f, "{}", msg),
+        let has_msg = if let Some(msg) = &self.msg {
+            write!(f, "{}", msg)?;
+            true
+        } else {
+            false
+        };
+
+        if let Some(cause) = &self.cause {
+            if has_msg {
+                write!(f, ": ")?;
+            }
+
+            match cause {
+                FailCause::Error(e) => e.fmt(f)?,
+                FailCause::Fail(fail) => fail.fmt(f)?,
+            }
+        }
+
+        Ok(())
+    }
+}
+
+impl<E: 'static + Send + Sync + error::Error> From<E> for Fail {
+    fn from(err: E) -> Fail {
+        Fail {
+            msg: None,
+            cause: Some(FailCause::Error(Box::new(err))),
         }
     }
 }
@@ -53,45 +98,55 @@ impl fmt::Display for Error {
 
 impl error::Error for Error {}
 
-impl<E: 'static + error::Error> From<E> for Fail {
-    fn from(err: E) -> Fail {
-        Fail::Error(Box::new(err))
-    }
-}
-
-pub trait ErrorMessageExt<T> {
+pub trait FailExt<T> {
     fn context<D: fmt::Display>(self, msg: D) -> Result<T, Fail>;
-
-    #[deprecated(since = "0.1.1", note = "Use context().")]
-    fn err_msg<D: fmt::Display>(self, msg: D) -> Result<T, Fail>;
 }
 
-impl<T, E: 'static + error::Error> ErrorMessageExt<T> for Result<T, E> {
+impl<T, E: 'static + Send + Sync + error::Error> FailExt<T> for Result<T, E> {
     fn context<D: fmt::Display>(self, msg: D) -> Result<T, Fail> {
-        self.map_err(|err| Fail::Fail(Some(msg.to_string()), Box::new(err.into())))
-    }
-
-    fn err_msg<D: fmt::Display>(self, msg: D) -> Result<T, Fail> {
-        self.map_err(|err| Fail::Fail(Some(msg.to_string()), Box::new(err.into())))
+        self.map_err(|err| Fail {
+            msg: Some(msg.to_string()),
+            cause: Some(FailCause::Error(Box::new(err))),
+        })
     }
 }
 
-impl<T> ErrorMessageExt<T> for Option<T> {
+impl<T> FailExt<T> for Option<T> {
     fn context<D: fmt::Display>(self, msg: D) -> Result<T, Fail> {
-        self.ok_or_else(|| Fail::Message(msg.to_string()))
-    }
-
-    fn err_msg<D: fmt::Display>(self, msg: D) -> Result<T, Fail> {
-        self.ok_or_else(|| Fail::Message(msg.to_string()))
+        self.ok_or_else(|| Fail::new(msg))
     }
 }
 
-impl<T> ErrorMessageExt<T> for Result<T, Fail> {
+impl<T> FailExt<T> for Result<T, Fail> {
     fn context<D: fmt::Display>(self, msg: D) -> Result<T, Fail> {
-        self.map_err(|fail| fail.msg(msg))
+        self.map_err(|fail| fail.add_msg(msg))
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    fn assert_send<T: Send>() {}
+    fn assert_sync<T: Sync>() {}
+
+    #[test]
+    fn fail_is_send() {
+        assert_send::<Fail>();
     }
 
-    fn err_msg<D: fmt::Display>(self, msg: D) -> Result<T, Fail> {
-        self.map_err(|fail| fail.msg(msg))
+    #[test]
+    fn fail_is_sync() {
+        assert_sync::<Fail>();
+    }
+
+    #[test]
+    fn error_is_send() {
+        assert_send::<Error>();
+    }
+
+    #[test]
+    fn error_is_sync() {
+        assert_sync::<Error>();
     }
 }
