@@ -8,7 +8,7 @@ tiny_fail
 
 ## Overview
 
-`tiny_fail` provides simple fail type `Fail`, its wrapper `Error` and error message helper trait `ErrorMessageExt` for `Option`/`Result`.
+`tiny_fail` provides simple fail type `Fail`, its wrapper `Error` and error message helper trait `FailExt` for `Option`/`Result`.
 
 ## License
 
