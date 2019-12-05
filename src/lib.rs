@@ -8,6 +8,7 @@
 
 use std::error;
 use std::fmt;
+use std::string::ToString;
 
 /// The failure type.
 #[derive(Debug)]
@@ -23,14 +24,15 @@ enum FailCause {
 }
 
 impl Fail {
-    pub fn new<D: fmt::Display>(msg: D) -> Fail {
+    /// Create new `Fail` from message.
+    pub fn new<S: ToString>(msg: S) -> Fail {
         Fail {
             msg: Some(msg.to_string()),
             cause: None,
         }
     }
 
-    fn add_msg<D: fmt::Display>(self, msg: D) -> Fail {
+    fn add_msg<S: ToString>(self, msg: S) -> Fail {
         match self {
             Fail { msg: None, cause } => Fail {
                 msg: Some(msg.to_string()),
@@ -99,11 +101,11 @@ impl fmt::Display for Error {
 impl error::Error for Error {}
 
 pub trait FailExt<T> {
-    fn context<D: fmt::Display>(self, msg: D) -> Result<T, Fail>;
+    fn context<S: ToString>(self, msg: S) -> Result<T, Fail>;
 }
 
 impl<T, E: 'static + Send + Sync + error::Error> FailExt<T> for Result<T, E> {
-    fn context<D: fmt::Display>(self, msg: D) -> Result<T, Fail> {
+    fn context<S: ToString>(self, msg: S) -> Result<T, Fail> {
         self.map_err(|err| Fail {
             msg: Some(msg.to_string()),
             cause: Some(FailCause::Error(Box::new(err))),
@@ -112,13 +114,13 @@ impl<T, E: 'static + Send + Sync + error::Error> FailExt<T> for Result<T, E> {
 }
 
 impl<T> FailExt<T> for Option<T> {
-    fn context<D: fmt::Display>(self, msg: D) -> Result<T, Fail> {
+    fn context<S: ToString>(self, msg: S) -> Result<T, Fail> {
         self.ok_or_else(|| Fail::new(msg))
     }
 }
 
 impl<T> FailExt<T> for Result<T, Fail> {
-    fn context<D: fmt::Display>(self, msg: D) -> Result<T, Fail> {
+    fn context<S: ToString>(self, msg: S) -> Result<T, Fail> {
         self.map_err(|fail| fail.add_msg(msg))
     }
 }
