@@ -19,12 +19,10 @@ use std::string::ToString;
 /// use std::io::{BufRead, BufReader};
 ///
 /// use tiny_fail::Fail;
-///
-/// fn main() {
-///     if let Err(e) = foo() {
-///         eprintln!("{}", e);
-///     }
-/// }
+/// #
+/// # if let Err(e) = foo() {
+/// #     eprintln!("{}", e);
+/// # }
 ///
 /// fn foo() -> Result<(), Fail> {
 ///     let f = File::open("not_exists.txt")?;
@@ -138,12 +136,10 @@ impl error::Error for Error {}
 /// use std::io::{BufRead, BufReader};
 ///
 /// use tiny_fail::{Fail, FailExt};
-///
-/// fn main() {
-///     if let Err(e) = foo() {
-///         eprintln!("{}", e);
-///     }
-/// }
+/// #
+/// # if let Err(e) = foo() {
+/// #     eprintln!("{}", e);
+/// # }
 ///
 /// fn foo() -> Result<(), Fail> {
 ///     let f = File::open("not_exists.txt").context("failed open not_exists.txt")?;
