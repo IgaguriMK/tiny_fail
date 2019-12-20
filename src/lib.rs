@@ -178,6 +178,31 @@ impl<T> FailExt<T> for Result<T, Fail> {
     }
 }
 
+/// Macro to format and return `Err(Fail::new(..))`.
+///
+/// Arguments format is same as [`std::format!()`](https://doc.rust-lang.org/std/macro.format.html).
+///
+/// # Example
+///
+/// ```
+/// use tiny_fail::{raise, Fail};
+/// #
+/// # fn main() {
+/// #     let err = foo().unwrap_err();
+/// #     assert_eq!(&format!("{}", err), "Some error caused by 123");
+/// # }
+///
+/// fn foo() -> Result<(), Fail> {
+///     raise!("Some error caused by {}", 123);
+/// }
+/// ```
+#[macro_export]
+macro_rules! raise {
+    ($($arg:tt)*) => {
+        return std::result::Result::Err($crate::Fail::new(std::format!($($arg)*)))
+    };
+}
+
 #[cfg(test)]
 mod test {
     use super::*;

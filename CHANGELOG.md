@@ -1,6 +1,10 @@
 
 ## Unreleased
 
+* Add `raise` macro that makes building `Fail` more easy.
+
+## 0.2.0 (2019-12-05)
+
 * `ErrorMessageExt` is replaced by `FailExt`.
 * `Fail` is now struct.
     - Internal variants will be hidden.
