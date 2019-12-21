@@ -1,5 +1,5 @@
 
-## Unreleased
+## 0.2.1 (2019-12-21)
 
 * Add `raise` macro that makes building `Fail` more easy.
 
